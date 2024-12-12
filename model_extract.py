@@ -1,8 +1,9 @@
 import struct
+import numpy as np
 
 # run command :         python "model_extract.py"
 
-target_file = "C:\\Users\\Joe bingle\\Downloads\\boardguard_testing\\.godot\\imported\\ritual_stone.obj-30f9aba14dfd620040c6c19d3935ab3d.mesh"
+target_file = "C:\\Users\\Joe bingle\\Downloads\\boardguard_testing\\.godot\\imported\\pawn.obj-67e0359734749799be1fd610501e780d.mesh"
 
 output_file = "C:\\Users\\Joe bingle\\Downloads\\test\\output.obj"
 
@@ -37,6 +38,7 @@ def doody_mode():
     vert_count = 0
     index_buffer = None
     index_count = 0
+    is_weird_vertex = False
     with open(target_file, "rb") as f:
         # read all the filler junk
         f.read(0x18)
@@ -67,7 +69,7 @@ def doody_mode():
             unk_0000_0005 = little_endian_4(f)
             match read_delimited_string(f):
                 case "format":
-                    f.read(12)
+                    is_weird_vertex = ((f.read(12)[7] & 32) != 0)
                 case "primitive":
                     f.read(8)
                 case "vertex_data":
@@ -102,9 +104,25 @@ def doody_mode():
 
         #vert_count = len(vert_buffer) / 12
         for i in range(vert_count):
-            vert_offset = i * 12
-            vert = struct.unpack_from("fff",vert_buffer[vert_offset:vert_offset+12])
-            file.write('v '+ str(vert[0]) +' '+ str(vert[1]) +' '+ str(vert[2]) +'\n')
+            if is_weird_vertex == False:
+                vert_offset = i * 12
+                vert = struct.unpack_from("fff",vert_buffer[vert_offset:vert_offset+12])
+                file.write('v '+ str(vert[0]) +' '+ str(vert[1]) +' '+ str(vert[2]) +'\n')
+            else:
+                # documentation says: 
+                #
+                # Flag used to mark that a mesh is using compressed attributes (vertices, normals, tangents, UVs). 
+                # When this form of compression is enabled, vertex positions will be packed into an RGBA16UNORM attribute and scaled in the vertex shader. 
+                # The normal and tangent will be packed into an RG16UNORM representing an axis, and a 16-bit float stored in the A-channel of the vertex. 
+                # UVs will use 16-bit normalized floats instead of full 32-bit signed floats. 
+                # When using this compression mode you must use either vertices, normals, and tangents or only vertices. 
+                # You cannot use normals without tangents. Importers will automatically enable this compression if they can.
+                vert_offset = (i * 8) + 2
+                test2 = vert_buffer[vert_offset:vert_offset+8]
+
+                vert = struct.unpack_from("HHH",test2)
+                file.write('v '+ str(vert[0]/0xffff) +' '+ str(vert[1]/0xffff) +' '+ str(vert[2]/0xffff) +'\n')
+
 
         file.write('s 0\n')
 
@@ -113,8 +131,6 @@ def doody_mode():
             tri_offset = i * 6
             index = struct.unpack_from("hhh",index_buffer[tri_offset:tri_offset+6])
             file.write('f '+ str(index[0]+1) +' '+ str(index[1]+1) +' '+ str(index[2]+1) +'\n')
-
-
 
 
         
