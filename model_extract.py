@@ -1,12 +1,15 @@
 import struct
 
+# run command :         python "model_extract.py"
 
 target_file = "C:\\Users\\Joe bingle\\Downloads\\boardguard_testing\\.godot\\imported\\ritual_stone.obj-30f9aba14dfd620040c6c19d3935ab3d.mesh"
 
+output_file = "C:\\Users\\Joe bingle\\Downloads\\test\\output.obj"
 
 
 def little_endian_4(f):
-    return struct.unpack_from("<4",f.read(4))
+    return struct.unpack_from("<i",f.read(4))[0]
+
 
 def read_string(f):
     output = ""
@@ -30,6 +33,10 @@ def read_delimited_string(f):
 
 
 def doody_mode(): 
+    vert_buffer = None
+    vert_count = 0
+    index_buffer = None
+    index_count = 0
     with open(target_file, "rb") as f:
         # read all the filler junk
         f.read(0x18)
@@ -44,7 +51,11 @@ def doody_mode():
         label_count = little_endian_4(f)
         for i in range(label_count):
             label = read_delimited_string(f)
-            
+        
+        # process junk 
+        f.read(8)
+        read_delimited_string(f)
+
         f.read(8)
         if read_delimited_string(f) != "ArrayMesh":
             print("not the right format!!!")
@@ -54,8 +65,7 @@ def doody_mode():
         component_count = little_endian_4(f)
         for i in range(component_count):
             unk_0000_0005 = little_endian_4(f)
-            label = read_delimited_string(f)
-            match label:
+            match read_delimited_string(f):
                 case "format":
                     f.read(12)
                 case "primitive":
@@ -63,13 +73,14 @@ def doody_mode():
                 case "vertex_data":
                     vert_format = little_endian_4(f)
                     vert_buffer_size = little_endian_4(f)
-                    f.read(vert_buffer_size)
+                    vert_buffer = f.read(vert_buffer_size) # 19040 = 1586 verts
                 case "vertex_count":
-                    f.read(8)
+                    f.read(4)
+                    vert_count = little_endian_4(f) # 952
                 case "attribute_data": # codeword for UV? or just unnamed data buffer block?
                     attribute_format = little_endian_4(f)
                     attribute_buffer_size = little_endian_4(f)
-                    f.read(attribute_buffer_size)
+                    f.read(attribute_buffer_size) # 7616 = 1269
                 case "aabb":
                     f.read(28)
                 case "uv_scale":
@@ -77,17 +88,33 @@ def doody_mode():
                 case "index_data":
                     index_format = little_endian_4(f)
                     index_buffer_size = little_endian_4(f)
-                    f.read(index_buffer_size)
+                    index_buffer = f.read(index_buffer_size) # 7632 = 954 triangles
                 case "index_count":
-                    f.read(8)
+                    f.read(4)
+                    index_count = little_endian_4(f) # 3816
                 case "name":
-                    f.read(12)
                     count3 = little_endian_4(f)
                     name = read_delimited_string(f)
 
-        # now convert to obj file
+    # now convert to obj file
+    with open(output_file, 'w') as file:
+        file.write('o Cube\n')
 
-        
+        #vert_count = len(vert_buffer) / 12
+        for i in range(vert_count):
+            vert_offset = i * 12
+            vert = struct.unpack_from("fff",vert_buffer[vert_offset:vert_offset+12])
+            file.write('v '+ str(vert[0]) +' '+ str(vert[1]) +' '+ str(vert[2]) +'\n')
+
+        file.write('s 0\n')
+
+        #tri_count = len(index_buffer) / 6
+        for i in range(index_count//3):
+            tri_offset = i * 6
+            index = struct.unpack_from("hhh",index_buffer[tri_offset:tri_offset+6])
+            file.write('f '+ str(index[0]+1) +' '+ str(index[1]+1) +' '+ str(index[2]+1) +'\n')
+
+
 
 
         
