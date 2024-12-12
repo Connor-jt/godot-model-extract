@@ -117,7 +117,9 @@ def doody_mode():
                 # UVs will use 16-bit normalized floats instead of full 32-bit signed floats. 
                 # When using this compression mode you must use either vertices, normals, and tangents or only vertices. 
                 # You cannot use normals without tangents. Importers will automatically enable this compression if they can.
-                vert_offset = (i * 8) + 2
+
+                # godot's code implies that each thingo of vertices should be 8 bytes long, opposed to the 12 bytes of uncompressed vertex buffer stride thing
+                vert_offset = (i * 8) # + 2
                 test2 = vert_buffer[vert_offset:vert_offset+8]
 
                 vert = struct.unpack_from("HHH",test2)
